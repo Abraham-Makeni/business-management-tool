@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Environment
+.env
+
+# Database / data
+data/app.db
+data/backups/*
+!data/backups/.gitkeep
+data/exports/*
+!data/exports/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+
+# Alembic cache
+.alembic/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

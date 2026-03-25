@@ -1,0 +1,9 @@
+PySide6
+SQLAlchemy
+alembic
+pydantic
+python-dotenv
+passlib[bcrypt]
+pandas
+openpyxl
+reportlab
