@@ -17,12 +17,12 @@ class SummaryCard(QFrame):
         self.title_label = QLabel(title)
         self.title_label.setStyleSheet("font-size: 13px; color: #555;")
 
-        self.value_label = QLabel(value)
-        self.value_label.setStyleSheet("font-size: 24px; font-weight: bold;")
+        self.value_label = QLabel(value or "—")
+        self.value_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #222;")
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.title_label)
         layout.addWidget(self.value_label)
 
     def set_value(self, value: str) -> None:
-        self.value_label.setText(value)
+        self.value_label.setText(str(value) if value not in (None, "") else "—")

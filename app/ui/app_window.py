@@ -15,6 +15,7 @@ from app.ui.screens.expenses_screen import ExpensesScreen
 from app.ui.screens.inventory_screen import InventoryScreen
 from app.ui.screens.pos_screen import POSScreen
 from app.ui.screens.products_screen import ProductsScreen
+from app.ui.screens.reports_screen import ReportsScreen
 from app.ui.screens.settings_screen import SettingsScreen
 
 
@@ -26,7 +27,7 @@ class AppWindow(QMainWindow):
 
         self.nav_list = QListWidget()
         self.nav_list.setFixedWidth(220)
-        for item in ["Dashboard", "Products", "Categories", "Inventory", "Sales", "Settings"]:
+        for item in ["Dashboard", "Products", "Categories", "Inventory", "Sales", "Expenses", "Reports", "Settings"]:
             QListWidgetItem(item, self.nav_list)
 
         self.stack = QStackedWidget()
@@ -36,6 +37,7 @@ class AppWindow(QMainWindow):
         self.stack.addWidget(InventoryScreen())
         self.stack.addWidget(POSScreen())
         self.stack.addWidget(ExpensesScreen())
+        self.stack.addWidget(ReportsScreen())
         self.stack.addWidget(SettingsScreen())
 
         self.nav_list.currentRowChanged.connect(self.stack.setCurrentIndex)

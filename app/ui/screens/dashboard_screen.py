@@ -1,3 +1,4 @@
+from PySide6.QtCore import QEvent
 from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
@@ -44,6 +45,12 @@ class DashboardScreen(QWidget):
 
         self.refresh_btn.clicked.connect(self.load_summary)
         self.load_summary()
+
+    def showEvent(self, event: QEvent) -> None:
+        """Refresh dashboard data when the screen becomes visible."""
+        super().showEvent(event)
+        if event.type() == QEvent.Show:
+            self.load_summary()
 
     def load_summary(self) -> None:
         summary = self.dashboard_service.get_summary(self.business.id)
