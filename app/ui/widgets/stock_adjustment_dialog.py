@@ -32,7 +32,7 @@ class StockAdjustmentDialog(QDialog):
         form = QFormLayout()
         form.addRow("Movement Type", self.type_input)
         form.addRow("Quantity", self.qty_input)
-        form.addRow("Reference / Note", self.reference_input)
+        form.addRow("Notes", self.reference_input)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._validate_and_accept)

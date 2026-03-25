@@ -16,12 +16,12 @@ class InventoryScreen(QWidget):
 
         self.inventory_service = InventoryService()
 
-        self.title = QLabel("Inventory Movements")
+        self.title = QLabel("Stock History")
         self.refresh_btn = QPushButton("Refresh")
 
         self.table = QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(
-            ["ID", "Product ID", "Type", "Quantity", "Reference", "Created At"]
+            ["ID", "Product", "Type", "Quantity", "Notes", "Date"]
         )
 
         layout = QVBoxLayout(self)

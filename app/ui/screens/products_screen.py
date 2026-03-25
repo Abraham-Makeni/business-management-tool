@@ -32,8 +32,8 @@ class ProductsScreen(QWidget):
 
         self.add_btn = QPushButton("Add Product")
         self.edit_btn = QPushButton("Edit Selected")
-        self.delete_btn = QPushButton("Delete Selected")
-        self.adjust_btn = QPushButton("Adjust Stock")
+        self.delete_btn = QPushButton("Remove")
+        self.adjust_btn = QPushButton("Change Stock")
         self.refresh_btn = QPushButton("Refresh")
 
         actions_layout = QHBoxLayout()

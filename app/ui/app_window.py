@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from app.ui.screens.categories_screen import CategoriesScreen
 from app.ui.screens.dashboard_screen import DashboardScreen
 from app.ui.screens.inventory_screen import InventoryScreen
+from app.ui.screens.pos_screen import POSScreen
 from app.ui.screens.products_screen import ProductsScreen
 from app.ui.screens.settings_screen import SettingsScreen
 
@@ -24,7 +25,7 @@ class AppWindow(QMainWindow):
 
         self.nav_list = QListWidget()
         self.nav_list.setFixedWidth(220)
-        for item in ["Dashboard", "Products", "Categories", "Inventory", "Settings"]:
+        for item in ["Dashboard", "Products", "Categories", "Inventory", "Sales", "Settings"]:
             QListWidgetItem(item, self.nav_list)
 
         self.stack = QStackedWidget()
@@ -32,6 +33,7 @@ class AppWindow(QMainWindow):
         self.stack.addWidget(ProductsScreen())
         self.stack.addWidget(CategoriesScreen())
         self.stack.addWidget(InventoryScreen())
+        self.stack.addWidget(POSScreen())
         self.stack.addWidget(SettingsScreen())
 
         self.nav_list.currentRowChanged.connect(self.stack.setCurrentIndex)
