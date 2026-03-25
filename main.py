@@ -3,12 +3,12 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from app.core.config import APP_NAME
-from app.database.init_db import init_db
+from app.database.seed import ensure_default_business
 from app.ui.app_window import AppWindow
 
 
 def main() -> None:
-    init_db()
+    ensure_default_business()
 
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
