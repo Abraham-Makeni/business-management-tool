@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
@@ -13,11 +14,24 @@ from PySide6.QtWidgets import (
 
 from app.database.seed import ensure_default_business
 from app.services.settings_service import SettingsService
+from app.services.session_manager import SessionManager
+from app.services.permissions import MANAGE_SETTINGS
 
 
 class SettingsScreen(QWidget):
     def __init__(self) -> None:
         super().__init__()
+        self._initialized = False
+
+    def _init_ui(self) -> None:
+        """Initialize the UI components (called lazily when screen is shown)."""
+        if self._initialized:
+            return
+
+        # Check permissions
+        if not SessionManager.has_permission(MANAGE_SETTINGS):
+            self.show_permission_denied()
+            return
 
         self.business = ensure_default_business()
         self.settings_service = SettingsService()
@@ -51,6 +65,7 @@ class SettingsScreen(QWidget):
         # Preferences Section
         preferences_section = QLabel("Preferences")
         preferences_section.setStyleSheet("font-size: 14px; font-weight: 600; margin-top: 20px;")
+        form.addRow(preferences_section)
 
         # Currency
         self.currency_input = QLineEdit()
@@ -87,6 +102,28 @@ class SettingsScreen(QWidget):
         layout.addWidget(profile_section)
         layout.addLayout(form)
         layout.addLayout(button_layout)
+        layout.addStretch()
+
+        self._initialized = True
+
+    def showEvent(self, event):
+        """Called when the screen is shown."""
+        super().showEvent(event)
+        self._init_ui()
+
+    def show_permission_denied(self):
+        """Show permission denied message."""
+        layout = QVBoxLayout(self)
+        denied_label = QLabel("Access Denied")
+        denied_label.setStyleSheet("font-size: 18px; font-weight: 600; color: red;")
+        denied_label.setAlignment(Qt.AlignCenter)
+
+        message_label = QLabel("You don't have permission to access Settings.")
+        message_label.setAlignment(Qt.AlignCenter)
+
+        layout.addStretch()
+        layout.addWidget(denied_label)
+        layout.addWidget(message_label)
         layout.addStretch()
 
     def save_settings(self) -> None:
