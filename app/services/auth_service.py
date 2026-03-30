@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.database.models.user import User
 from app.database.session import SessionLocal
@@ -35,25 +35,45 @@ class AuthenticationService:
 
             # Check password first
             if user.password_hash == self.hash_password(password_or_pin):
-                # Update last login
                 user.last_login_at = datetime.utcnow()
                 session.commit()
-                # Ensure all attributes are loaded before expunging
                 _ = user.role, user.must_change_password, user.username
                 session.expunge(user)
                 return user
 
             # Check PIN if password didn't match
             if user.pin_hash and user.pin_hash == self.hash_pin(password_or_pin):
-                # Update last login
                 user.last_login_at = datetime.utcnow()
                 session.commit()
-                # Ensure all attributes are loaded before expunging
                 _ = user.role, user.must_change_password, user.username
                 session.expunge(user)
                 return user
 
             return None
+
+    def owner_exists(self) -> bool:
+        """Check whether an owner account already exists."""
+        with SessionLocal() as session:
+            return session.scalar(
+                select(User).where(User.role == "owner", User.status == True).limit(1)
+            ) is not None
+
+    def get_active_owner_count(self) -> int:
+        """Return the number of active owner accounts."""
+        with SessionLocal() as session:
+            return session.scalar(
+                select(func.count()).select_from(User).where(User.role == "owner", User.status == True)
+            ) or 0
+
+    def get_users_for_business(self, business_id: int) -> list[User]:
+        """Return all users for a given business."""
+        with SessionLocal() as session:
+            users = session.scalars(
+                select(User).where(User.business_id == business_id).order_by(User.role, User.name)
+            ).all()
+            for user in users:
+                session.expunge(user)
+            return users
 
     def create_user(
         self,
@@ -64,6 +84,8 @@ class AuthenticationService:
         pin: str | None = None,
         role: str = "cashier",
         must_change_password: bool = False,
+        email: str | None = None,
+        phone: str | None = None,
     ) -> User:
         """Create a new user account."""
         if not password and not pin:
@@ -82,6 +104,8 @@ class AuthenticationService:
                 role=role,
                 status=True,
                 must_change_password=must_change_password,
+                email=email,
+                phone=phone,
             )
             session.add(user)
             session.commit()
@@ -98,6 +122,18 @@ class AuthenticationService:
 
             user.password_hash = self.hash_password(new_password)
             user.must_change_password = False
+            session.commit()
+            return True
+
+    def reset_user_password(self, user_id: int, new_password: str) -> bool:
+        """Reset a user's password and require a password change if needed."""
+        with SessionLocal() as session:
+            user = session.scalar(select(User).where(User.id == user_id))
+            if not user:
+                return False
+
+            user.password_hash = self.hash_password(new_password)
+            user.must_change_password = True
             session.commit()
             return True
 
@@ -118,6 +154,13 @@ class AuthenticationService:
             user = session.scalar(select(User).where(User.id == user_id))
             if not user:
                 return False
+
+            if user.role == "owner" and user.status:
+                owner_count = session.scalar(
+                    select(func.count()).select_from(User).where(User.role == "owner", User.status == True)
+                ) or 0
+                if owner_count <= 1:
+                    return False
 
             user.status = False
             session.commit()
