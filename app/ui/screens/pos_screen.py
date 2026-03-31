@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -120,7 +122,7 @@ class POSScreen(QWidget):
         app_signals.product_changed.connect(self.load_products)
 
     def load_products(self) -> None:
-        self.products = [p for p in self.product_service.list_products() if p.active]
+        self.products = self.product_service.list_products(self.business.id)
         self.render_product_list(self.products)
 
     def render_product_list(self, products) -> None:
@@ -234,7 +236,7 @@ class POSScreen(QWidget):
 
         transaction_ref = None
         if payment_method == "mpesa":
-            transaction_ref = "MANUAL-MPESA"
+            transaction_ref = f"MPESA-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}"
 
         self.cash_btn.setEnabled(False)
         self.mpesa_btn.setEnabled(False)

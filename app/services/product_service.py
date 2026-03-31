@@ -8,13 +8,16 @@ from app.services.signals import app_signals
 
 
 class ProductService:
-    def list_products(self) -> list[Product]:
+    def list_products(self, business_id: int | None = None) -> list[Product]:
         with SessionLocal() as session:
             stmt = (
                 select(Product)
                 .options(selectinload(Product.category))
                 .order_by(Product.id.desc())
             )
+            if business_id is not None:
+                stmt = stmt.where(Product.business_id == business_id)
+            stmt = stmt.where(Product.active == True)
             return list(session.scalars(stmt).all())
 
     def create_product(

@@ -96,7 +96,7 @@ class ProductsScreen(QWidget):
         self.table.refresh_btn.setEnabled(False)
 
         def work():
-            return self.product_service.list_products()
+            return self.product_service.list_products(self.business.id)
 
         def ok(products):
             self.products = products

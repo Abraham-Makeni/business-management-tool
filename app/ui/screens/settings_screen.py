@@ -1,5 +1,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -15,6 +17,8 @@ from app.database.seed import ensure_default_business
 from app.services.settings_service import SettingsService
 from app.services.session_manager import SessionManager
 from app.services.permissions import MANAGE_SETTINGS
+from app.services.theme_service import ThemeService
+from app.ui.design_system.theme import load_app_stylesheet
 
 
 class SettingsScreen(QWidget):
@@ -87,6 +91,16 @@ class SettingsScreen(QWidget):
         self.receipt_footer_input.setPlaceholderText("e.g. Thank you for your purchase!")
         form.addRow("Receipt Footer:", self.receipt_footer_input)
 
+        # Theme
+        self.theme_input = QComboBox()
+        self.theme_input.addItem("High Contrast", "high_contrast")
+        self.theme_input.addItem("Dark", "dark")
+        self.theme_input.addItem("Light", "light")
+        current_theme = ThemeService.get_theme()
+        index = self.theme_input.findData(current_theme)
+        self.theme_input.setCurrentIndex(index if index >= 0 else 0)
+        form.addRow("Theme:", self.theme_input)
+
         # Buttons
         save_btn = PrimaryButton("Save Settings")
         save_btn.clicked.connect(self.save_settings)
@@ -144,6 +158,9 @@ class SettingsScreen(QWidget):
                 tax_percent=self.tax_percent_input.value(),
                 receipt_footer=self.receipt_footer_input.text(),
             )
+            selected_theme = self.theme_input.currentData() or ThemeService.DEFAULT_THEME
+            ThemeService.set_theme(selected_theme)
+            QApplication.instance().setStyleSheet(load_app_stylesheet())
 
             QMessageBox.information(self, "Success", "Settings saved successfully!")
             # Refresh business object

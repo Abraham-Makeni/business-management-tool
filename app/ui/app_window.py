@@ -116,17 +116,34 @@ class AppWindow(QMainWindow):
 
         self.nav_container = QWidget()
         self.nav_container.setObjectName("Sidebar")
-        self.nav_container.setObjectName("navContainer")
         self.nav_container.setFixedWidth(220)
-        nav_layout = QVBoxLayout(self.nav_container)
-        nav_layout.setContentsMargins(10, 14, 10, 14)
-        nav_layout.setSpacing(10)
+        self.nav_container.setMinimumWidth(40)
+        self.nav_container.setContentsMargins(0, 0, 0, 0)
+
+        self.drawer_toggle_button = QPushButton("☰")
+        self.drawer_toggle_button.setFixedSize(40, 40)
+        self.drawer_toggle_button.clicked.connect(self.toggle_drawer)
+        self.drawer_toggle_button.setObjectName("DrawerToggleButton")
+        self.drawer_toggle_button.setStyleSheet("border:none; background: transparent; padding: 0; margin: 0;")
+
+        self.nav_content = QWidget()
+        nav_content_layout = QVBoxLayout(self.nav_content)
+        nav_content_layout.setContentsMargins(0, 0, 0, 0)
+        nav_content_layout.setSpacing(10)
 
         brand = TitleLabel(self.get_business_name())
-        nav_layout.addWidget(brand)
-        nav_layout.addWidget(self.nav_list)
-        nav_layout.addWidget(self.logout_button)
-        nav_layout.addStretch()
+        nav_content_layout.addWidget(brand)
+        nav_content_layout.addWidget(self.nav_list)
+        nav_content_layout.addWidget(self.logout_button)
+        nav_content_layout.addStretch()
+
+        nav_layout = QVBoxLayout(self.nav_container)
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(0)
+        nav_layout.addWidget(self.drawer_toggle_button, alignment=Qt.AlignTop | Qt.AlignLeft)
+        nav_layout.addWidget(self.nav_content, 1)
+
+        self.drawer_open = True
 
         content_layout = QHBoxLayout()
         content_layout.setContentsMargins(0, 0, 0, 0)
@@ -147,13 +164,13 @@ class AppWindow(QMainWindow):
         self.setWindowTitle(f"Business Management Tool - {username}")
 
     def toggle_drawer(self) -> None:
-        if not self.nav_container:
+        if not self.nav_container or not self.nav_content:
             return
+
         self.drawer_open = not self.drawer_open
-        if self.drawer_open:
-            self.nav_container.show()
-        else:
-            self.nav_container.hide()
+        self.nav_content.setVisible(self.drawer_open)
+        self.nav_container.setFixedWidth(220 if self.drawer_open else 40)
+        self.drawer_toggle_button.setText("×" if self.drawer_open else "☰")
 
     def switch_page(self, row: int) -> None:
         item = self.nav_list.item(row)
