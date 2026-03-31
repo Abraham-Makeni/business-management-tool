@@ -4,14 +4,15 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from app.database.seed import ensure_default_business
 from app.services.expense_service import ExpenseService
+from app.ui.design_system.async_job import AsyncRunner, JobHandle
+from app.ui.design_system.table import Column, TableView
+from app.ui.design_system.widgets import PrimaryButton, TitleLabel
 from app.ui.widgets.expense_form import ExpenseFormDialog
 
 
@@ -22,11 +23,11 @@ class ExpensesScreen(QWidget):
         self.business = ensure_default_business()
         self.expense_service = ExpenseService()
         self.expenses = []
+        self.async_runner = AsyncRunner()
 
-        self.title = QLabel("Expenses")
-        self.title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        self.title = TitleLabel("Expenses")
 
-        self.add_btn = QPushButton("Record Expense")
+        self.add_btn = PrimaryButton("Record Expense")
         self.refresh_btn = QPushButton("Refresh")
 
         actions = QHBoxLayout()
@@ -34,16 +35,24 @@ class ExpensesScreen(QWidget):
         actions.addStretch()
         actions.addWidget(self.refresh_btn)
 
-        self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Category", "Amount", "Payment", "Reference", "Date"]
+        self.table = TableView(
+            columns=[
+                Column("id", "ID", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("category", "Category"),
+                Column("amount", "Amount", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("payment", "Payment"),
+                Column("reference", "Reference"),
+                Column("date", "Date"),
+            ]
         )
 
         self.empty_state_label = QLabel("No expenses recorded yet.")
-        self.empty_state_label.setStyleSheet("color: #999; font-size: 13px; text-align: center;")
+        self.empty_state_label.setStyleSheet("color: rgba(255,255,255,140); font-size: 13px;")
         self.empty_state_label.setAlignment(Qt.AlignCenter)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(self.title)
         layout.addLayout(actions)
         layout.addWidget(self.empty_state_label)
@@ -51,30 +60,45 @@ class ExpensesScreen(QWidget):
 
         self.add_btn.clicked.connect(self.add_expense)
         self.refresh_btn.clicked.connect(self.load_expenses)
+        self.table.refresh_btn.clicked.connect(self.load_expenses)
 
         self.load_expenses()
 
     def load_expenses(self) -> None:
-        self.expenses = self.expense_service.list_recent_expenses(self.business.id, limit=200)
-        self.table.setRowCount(len(self.expenses))
+        self.refresh_btn.setEnabled(False)
+        self.table.refresh_btn.setEnabled(False)
 
-        # Show/hide empty state
-        if len(self.expenses) == 0:
-            self.empty_state_label.setVisible(True)
-            self.table.setVisible(False)
-        else:
-            self.empty_state_label.setVisible(False)
-            self.table.setVisible(True)
+        def work():
+            return self.expense_service.list_recent_expenses(self.business.id, limit=200)
 
-        for row, expense in enumerate(self.expenses):
-            self.table.setItem(row, 0, QTableWidgetItem(str(expense.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(expense.category))
-            self.table.setItem(row, 2, QTableWidgetItem(f"{expense.amount:.2f}"))
-            self.table.setItem(row, 3, QTableWidgetItem(expense.payment_method.upper()))
-            self.table.setItem(row, 4, QTableWidgetItem(expense.reference or ""))
-            self.table.setItem(row, 5, QTableWidgetItem(expense.created_at.strftime("%Y-%m-%d %H:%M")))
+        def ok(expenses):
+            self.expenses = expenses
+            rows = []
+            for e in self.expenses:
+                rows.append(
+                    {
+                        "id": e.id,
+                        "category": e.category,
+                        "amount": f"{e.amount:.2f}",
+                        "payment": e.payment_method.upper(),
+                        "reference": e.reference or "",
+                        "date": e.created_at.strftime("%Y-%m-%d %H:%M"),
+                    }
+                )
+            self.table.set_rows(rows)
 
-        self.table.resizeColumnsToContents()
+            is_empty = len(self.expenses) == 0
+            self.empty_state_label.setVisible(is_empty)
+            self.table.setVisible(not is_empty)
+
+            self.refresh_btn.setEnabled(True)
+            self.table.refresh_btn.setEnabled(True)
+
+        def err(_trace: str):
+            self.refresh_btn.setEnabled(True)
+            self.table.refresh_btn.setEnabled(True)
+
+        self.async_runner.run(work, JobHandle(on_success=ok, on_error=err))
 
     def add_expense(self) -> None:
         dialog = ExpenseFormDialog(self)

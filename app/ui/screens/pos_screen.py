@@ -20,6 +20,8 @@ from app.database.seed import ensure_default_business
 from app.services.pos_service import POSService
 from app.services.product_service import ProductService
 from app.services.signals import app_signals
+from app.ui.design_system.async_job import AsyncRunner, JobHandle
+from app.ui.design_system.widgets import PrimaryButton, TitleLabel, SubtitleLabel
 from app.ui.widgets.receipt_dialog import ReceiptDialog
 
 
@@ -30,12 +32,13 @@ class POSScreen(QWidget):
         self.business = ensure_default_business()
         self.product_service = ProductService()
         self.pos_service = POSService()
+        self.async_runner = AsyncRunner()
 
         self.products = []
         self.cart = []
 
-        self.title = QLabel("Sales")
-        self.title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        self.title = TitleLabel("Sales")
+        self.subtitle = SubtitleLabel("Fast checkout (offline), responsive UI, glass layout")
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search product by name, SKU, or barcode")
@@ -65,8 +68,8 @@ class POSScreen(QWidget):
         self.total_label = QLabel("Total: 0.00")
         self.total_label.setStyleSheet("font-size: 18px; font-weight: bold;")
 
-        self.cash_btn = QPushButton("Complete Cash Sale")
-        self.mpesa_btn = QPushButton("Complete M-Pesa Sale")
+        self.cash_btn = PrimaryButton("Complete Cash Sale")
+        self.mpesa_btn = PrimaryButton("Complete M-Pesa Sale")
 
         left_layout = QVBoxLayout()
         left_layout.addWidget(QLabel("Find Product"))
@@ -98,7 +101,10 @@ class POSScreen(QWidget):
         content.addLayout(right_layout, 3)
 
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(14)
         main_layout.addWidget(self.title)
+        main_layout.addWidget(self.subtitle)
         main_layout.addLayout(content)
 
         self.search_input.textChanged.connect(self.filter_products)
@@ -230,8 +236,11 @@ class POSScreen(QWidget):
         if payment_method == "mpesa":
             transaction_ref = "MANUAL-MPESA"
 
-        try:
-            sale = self.pos_service.process_sale(
+        self.cash_btn.setEnabled(False)
+        self.mpesa_btn.setEnabled(False)
+
+        def work():
+            return self.pos_service.process_sale(
                 business_id=self.business.id,
                 cart_items=self.cart,
                 payment_method=payment_method,
@@ -239,18 +248,26 @@ class POSScreen(QWidget):
                 cashier_id=None,
                 transaction_ref=transaction_ref,
             )
-        except Exception as exc:
-            QMessageBox.critical(self, "Sale Failed", str(exc))
-            return
 
-        # Fetch and display receipt
-        receipt_data = self.pos_service.get_sale_receipt(self.business.id, sale.id)
-        if receipt_data:
-            receipt_dialog = ReceiptDialog(receipt_data, self)
-            receipt_dialog.exec()
+        def ok(sale):
+            # Fetch and display receipt
+            receipt_data = self.pos_service.get_sale_receipt(self.business.id, sale.id)
+            if receipt_data:
+                receipt_dialog = ReceiptDialog(receipt_data, self)
+                receipt_dialog.exec()
 
-        # Clear cart and refresh
-        self.cart.clear()
-        self.discount_input.setValue(0.0)
-        self.refresh_cart_table()
-        self.load_products()
+            # Clear cart and refresh
+            self.cart.clear()
+            self.discount_input.setValue(0.0)
+            self.refresh_cart_table()
+            self.load_products()
+
+            self.cash_btn.setEnabled(True)
+            self.mpesa_btn.setEnabled(True)
+
+        def err(trace: str):
+            QMessageBox.critical(self, "Sale Failed", trace)
+            self.cash_btn.setEnabled(True)
+            self.mpesa_btn.setEnabled(True)
+
+        self.async_runner.run(work, JobHandle(on_success=ok, on_error=err))

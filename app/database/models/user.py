@@ -15,7 +15,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
     email: Mapped[str | None] = mapped_column(String(120), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pin_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="owner")
     status: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

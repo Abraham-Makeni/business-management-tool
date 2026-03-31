@@ -1,5 +1,4 @@
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -26,6 +25,9 @@ class UsersScreen(QWidget):
         self.auth_service = AuthenticationService()
         self.business = ensure_default_business()
         self._initialized = False
+        from app.ui.design_system.async_job import AsyncRunner
+
+        self.async_runner = AsyncRunner()
 
     def _init_ui(self) -> None:
         if self._initialized:
@@ -35,8 +37,10 @@ class UsersScreen(QWidget):
             self.show_permission_denied()
             return
 
-        title = QLabel("User Management")
-        title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        from app.ui.design_system.widgets import GlassCard, PrimaryButton, SubtitleLabel, TitleLabel
+
+        title = TitleLabel("User Management")
+        subtitle = SubtitleLabel("Create staff accounts, reset credentials, and manage access.")
 
         self.name_input = QLineEdit()
         self.name_input.setPlaceholderText("Full name")
@@ -65,10 +69,9 @@ class UsersScreen(QWidget):
         add_form.addRow("Role:", self.role_input)
         add_form.addRow("Password:", self.password_input)
 
-        create_button = QPushButton("Add User")
+        create_button = PrimaryButton("Add User")
         create_button.clicked.connect(self.add_user)
         create_button.setMinimumHeight(40)
-        create_button.setStyleSheet("font-weight: 600;")
 
         self.user_list_container = QWidget()
         self.user_list_layout = QVBoxLayout(self.user_list_container)
@@ -80,12 +83,15 @@ class UsersScreen(QWidget):
         self.scroll_area.setWidget(self.user_list_container)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(title)
-        layout.addSpacing(10)
+        layout.addWidget(subtitle)
         layout.addLayout(add_form)
         layout.addWidget(create_button)
-        layout.addSpacing(20)
-        layout.addWidget(QLabel("Existing users:"))
+        existing = QLabel("Existing users")
+        existing.setStyleSheet("font-size: 14px; font-weight: 700;")
+        layout.addWidget(existing)
         layout.addWidget(self.scroll_area)
         layout.addStretch()
 
@@ -99,7 +105,7 @@ class UsersScreen(QWidget):
     def show_permission_denied(self) -> None:
         layout = QVBoxLayout(self)
         denied_label = QLabel("Access Denied")
-        denied_label.setStyleSheet("font-size: 18px; font-weight: 600; color: red;")
+        denied_label.setStyleSheet("font-size: 18px; font-weight: 700;")
         denied_label.setAlignment(Qt.AlignCenter)
 
         message_label = QLabel("You don't have permission to manage users.")
@@ -127,11 +133,9 @@ class UsersScreen(QWidget):
         self.user_list_layout.addStretch()
 
     def build_user_widget(self, user) -> QWidget:
-        widget = QWidget()
-        widget.setObjectName("userCard")
-        widget.setStyleSheet(
-            "#userCard { border: 1px solid #d0d0d0; border-radius: 6px; padding: 12px; }"
-        )
+        from app.ui.design_system.widgets import GlassCard
+
+        widget = GlassCard()
 
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(10, 10, 10, 10)

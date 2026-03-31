@@ -4,14 +4,15 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from app.database.seed import ensure_default_business
 from app.services.category_service import CategoryService
+from app.ui.design_system.async_job import AsyncRunner, JobHandle
+from app.ui.design_system.table import Column, TableView
+from app.ui.design_system.widgets import PrimaryButton, TitleLabel
 from app.ui.widgets.category_form import CategoryFormDialog
 
 
@@ -22,11 +23,11 @@ class CategoriesScreen(QWidget):
         self.business = ensure_default_business()
         self.category_service = CategoryService()
         self.categories = []
+        self.async_runner = AsyncRunner()
 
-        self.title = QLabel("Categories")
-        self.title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        self.title = TitleLabel("Categories")
 
-        self.add_btn = QPushButton("Add Category")
+        self.add_btn = PrimaryButton("Add Category")
         self.edit_btn = QPushButton("Edit")
         self.edit_btn.setEnabled(False)
         self.delete_btn = QPushButton("Remove")
@@ -40,17 +41,20 @@ class CategoriesScreen(QWidget):
         actions.addStretch()
         actions.addWidget(self.refresh_btn)
 
-        self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["ID", "Name"])
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table = TableView(
+            columns=[
+                Column("id", "ID", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("name", "Name"),
+            ]
+        )
 
         self.empty_state_label = QLabel("No categories yet. Add one to get started.")
-        self.empty_state_label.setStyleSheet("color: #999; font-size: 13px; text-align: center;")
+        self.empty_state_label.setStyleSheet("color: rgba(255,255,255,140); font-size: 13px;")
         self.empty_state_label.setAlignment(Qt.AlignCenter)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(self.title)
         layout.addLayout(actions)
         layout.addWidget(self.empty_state_label)
@@ -60,45 +64,50 @@ class CategoriesScreen(QWidget):
         self.edit_btn.clicked.connect(self.edit_selected_category)
         self.delete_btn.clicked.connect(self.delete_selected_category)
         self.refresh_btn.clicked.connect(self.load_categories)
-        self.table.itemSelectionChanged.connect(self.on_selection_changed)
+        self.table.table.selectionModel().selectionChanged.connect(lambda *_: self.on_selection_changed())
+        self.table.refresh_btn.clicked.connect(self.load_categories)
 
         self.load_categories()
 
     def on_selection_changed(self) -> None:
         """Enable/disable buttons based on selection."""
-        has_selection = self.table.currentRow() >= 0
+        has_selection = self.table.table.currentIndex().isValid()
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
 
     def load_categories(self) -> None:
-        self.categories = self.category_service.list_categories(self.business.id)
-        self.table.setRowCount(len(self.categories))
+        self.refresh_btn.setEnabled(False)
+        self.table.refresh_btn.setEnabled(False)
 
-        # Show/hide empty state
-        if len(self.categories) == 0:
-            self.empty_state_label.setVisible(True)
-            self.table.setVisible(False)
-            self.edit_btn.setEnabled(False)
-            self.delete_btn.setEnabled(False)
-        else:
-            self.empty_state_label.setVisible(False)
-            self.table.setVisible(True)
+        def work():
+            return self.category_service.list_categories(self.business.id)
 
-        for row, category in enumerate(self.categories):
-            self.table.setItem(row, 0, QTableWidgetItem(str(category.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(category.name))
+        def ok(categories):
+            self.categories = categories
+            rows = [{"id": c.id, "name": c.name} for c in self.categories]
+            self.table.set_rows(rows)
 
-        self.table.resizeColumnsToContents()
+            is_empty = len(self.categories) == 0
+            self.empty_state_label.setVisible(is_empty)
+            self.table.setVisible(not is_empty)
+            if is_empty:
+                self.edit_btn.setEnabled(False)
+                self.delete_btn.setEnabled(False)
+
+            self.refresh_btn.setEnabled(True)
+            self.table.refresh_btn.setEnabled(True)
+
+        def err(_trace: str):
+            self.refresh_btn.setEnabled(True)
+            self.table.refresh_btn.setEnabled(True)
+
+        self.async_runner.run(work, JobHandle(on_success=ok, on_error=err))
 
     def get_selected_category(self):
-        row = self.table.currentRow()
-        if row < 0:
+        selected = self.table.selected_row()
+        if not selected:
             return None
-        category_id_item = self.table.item(row, 0)
-        if category_id_item is None:
-            return None
-
-        category_id = int(category_id_item.text())
+        category_id = int(selected["id"])
         for category in self.categories:
             if category.id == category_id:
                 return category

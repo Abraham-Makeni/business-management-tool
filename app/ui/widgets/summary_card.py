@@ -1,26 +1,20 @@
-from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QLabel, QVBoxLayout
+
+from app.ui.design_system.widgets import GlassCard, SubtitleLabel
 
 
-class SummaryCard(QFrame):
+class SummaryCard(GlassCard):
     def __init__(self, title: str, value: str = "") -> None:
         super().__init__()
-        self.setFrameShape(QFrame.StyledPanel)
-        self.setStyleSheet("""
-            QFrame {
-                border: 1px solid #d9d9d9;
-                border-radius: 10px;
-                background: white;
-                padding: 8px;
-            }
-        """)
 
-        self.title_label = QLabel(title)
-        self.title_label.setStyleSheet("font-size: 13px; color: #555;")
+        self.title_label = SubtitleLabel(title)
 
         self.value_label = QLabel(value or "—")
-        self.value_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #222;")
+        self.value_label.setStyleSheet("font-size: 24px; font-weight: 800;")
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(6)
         layout.addWidget(self.title_label)
         layout.addWidget(self.value_label)
 

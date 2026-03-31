@@ -4,8 +4,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QTabWidget,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -14,6 +12,9 @@ from app.database.seed import ensure_default_business
 from app.services.backup_service import BackupService
 from app.services.export_service import ExportService
 from app.services.reporting_service import ReportingService
+from app.ui.design_system.async_job import AsyncRunner, JobHandle
+from app.ui.design_system.table import Column, TableView
+from app.ui.design_system.widgets import PrimaryButton, SubtitleLabel, TitleLabel
 
 
 class ReportsScreen(QWidget):
@@ -24,11 +25,11 @@ class ReportsScreen(QWidget):
         self.reporting_service = ReportingService()
         self.export_service = ExportService()
         self.backup_service = BackupService()
+        self.async_runner = AsyncRunner()
 
-        self.title = QLabel("Reports")
-        self.title.setStyleSheet("font-size: 20px; font-weight: 700;")
+        self.title = TitleLabel("Reports")
 
-        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn = PrimaryButton("Refresh")
         self.backup_btn = QPushButton("Backup Database")
 
         top_actions = QHBoxLayout()
@@ -36,24 +37,46 @@ class ReportsScreen(QWidget):
         top_actions.addStretch()
         top_actions.addWidget(self.backup_btn)
 
-        self.summary_label = QLabel("Summary will appear here")
+        self.summary_label = SubtitleLabel("Summary will appear here")
 
         self.tabs = QTabWidget()
 
-        self.low_stock_table = QTableWidget(0, 4)
-        self.low_stock_table.setHorizontalHeaderLabels(["ID", "Product", "Stock", "Reorder Level"])
+        self.low_stock_table = TableView(
+            columns=[
+                Column("id", "ID", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("product", "Product"),
+                Column("stock", "Stock", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("reorder_level", "Reorder Level", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+            ]
+        )
         self.low_stock_export_btn = QPushButton("Export Low Stock")
 
-        self.expenses_table = QTableWidget(0, 2)
-        self.expenses_table.setHorizontalHeaderLabels(["Category", "Total Amount"])
+        self.expenses_table = TableView(
+            columns=[
+                Column("category", "Category"),
+                Column("total_amount", "Total Amount", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+            ]
+        )
         self.expenses_export_btn = QPushButton("Export Expenses")
 
-        self.movements_table = QTableWidget(0, 5)
-        self.movements_table.setHorizontalHeaderLabels(["ID", "Product ID", "Type", "Quantity", "Date"])
+        self.movements_table = TableView(
+            columns=[
+                Column("id", "ID", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("product_id", "Product ID", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("type", "Type"),
+                Column("quantity", "Quantity", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("date", "Date"),
+            ]
+        )
         self.movements_export_btn = QPushButton("Export Stock History")
 
-        self.top_items_table = QTableWidget(0, 3)
-        self.top_items_table.setHorizontalHeaderLabels(["Item", "Qty Sold", "Sales Amount"])
+        self.top_items_table = TableView(
+            columns=[
+                Column("item", "Item"),
+                Column("qty_sold", "Qty Sold", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("sales_amount", "Sales Amount", align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+            ]
+        )
         self.top_items_export_btn = QPushButton("Export Top Items")
 
         self.tabs.addTab(self._wrap_tab(self.low_stock_table, self.low_stock_export_btn), "Low Stock")
@@ -62,6 +85,8 @@ class ReportsScreen(QWidget):
         self.tabs.addTab(self._wrap_tab(self.top_items_table, self.top_items_export_btn), "Top Items")
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(self.title)
         layout.addLayout(top_actions)
         layout.addWidget(self.summary_label)
@@ -77,100 +102,100 @@ class ReportsScreen(QWidget):
 
         self.load_reports()
 
-    def _wrap_tab(self, table: QTableWidget, button: QPushButton) -> QWidget:
+    def _wrap_tab(self, table: QWidget, button: QPushButton) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
         layout.addWidget(button)
         layout.addWidget(table)
         return tab
 
     def load_reports(self) -> None:
-        summary = self.reporting_service.get_daily_sales_summary(self.business.id)
-        self.summary_label.setText(
-            f"Today's Sales: KES {summary['total_sales']:.2f} | "
-            f"Transactions: {summary['transaction_count']} | "
-            f"Expenses: KES {summary['total_expenses']:.2f} | "
-            f"Estimated Balance: KES {summary['estimated_balance']:.2f}"
-        )
+        self.refresh_btn.setEnabled(False)
 
-        low_stock = self.reporting_service.get_low_stock_products(self.business.id)
-        self.low_stock_table.setRowCount(len(low_stock))
-        for row, product in enumerate(low_stock):
-            self.low_stock_table.setItem(row, 0, QTableWidgetItem(str(product.id)))
-            self.low_stock_table.setItem(row, 1, QTableWidgetItem(product.name))
-            self.low_stock_table.setItem(row, 2, QTableWidgetItem(f"{product.quantity_in_stock:.2f}"))
-            self.low_stock_table.setItem(row, 3, QTableWidgetItem(f"{product.reorder_level:.2f}"))
-        self.low_stock_table.resizeColumnsToContents()
+        def work():
+            summary = self.reporting_service.get_daily_sales_summary(self.business.id)
+            low_stock = self.reporting_service.get_low_stock_products(self.business.id)
+            expenses = self.reporting_service.get_expenses_by_category(self.business.id)
+            movements = self.reporting_service.get_recent_stock_movements(limit=200)
+            top_items = self.reporting_service.get_top_selling_items(self.business.id, limit=20)
+            return summary, low_stock, expenses, movements, top_items
 
-        expenses = self.reporting_service.get_expenses_by_category(self.business.id)
-        self.expenses_table.setRowCount(len(expenses))
-        for row, item in enumerate(expenses):
-            self.expenses_table.setItem(row, 0, QTableWidgetItem(item["category"]))
-            self.expenses_table.setItem(row, 1, QTableWidgetItem(f"{item['total_amount']:.2f}"))
-        self.expenses_table.resizeColumnsToContents()
+        def ok(payload):
+            summary, low_stock, expenses, movements, top_items = payload
+            self.summary_label.setText(
+                f"Today's Sales: KES {summary['total_sales']:.2f} | "
+                f"Transactions: {summary['transaction_count']} | "
+                f"Expenses: KES {summary['total_expenses']:.2f} | "
+                f"Estimated Balance: KES {summary['estimated_balance']:.2f}"
+            )
 
-        movements = self.reporting_service.get_recent_stock_movements(limit=200)
-        self.movements_table.setRowCount(len(movements))
-        for row, movement in enumerate(movements):
-            self.movements_table.setItem(row, 0, QTableWidgetItem(str(movement.id)))
-            self.movements_table.setItem(row, 1, QTableWidgetItem(str(movement.product_id)))
-            self.movements_table.setItem(row, 2, QTableWidgetItem(movement.movement_type))
-            self.movements_table.setItem(row, 3, QTableWidgetItem(f"{movement.quantity:.2f}"))
-            self.movements_table.setItem(row, 4, QTableWidgetItem(movement.created_at.strftime("%Y-%m-%d %H:%M")))
-        self.movements_table.resizeColumnsToContents()
+            self.low_stock_table.set_rows(
+                [
+                    {
+                        "id": p.id,
+                        "product": p.name,
+                        "stock": f"{p.quantity_in_stock:.2f}",
+                        "reorder_level": f"{p.reorder_level:.2f}",
+                    }
+                    for p in low_stock
+                ]
+            )
+            self.expenses_table.set_rows(
+                [
+                    {"category": item["category"], "total_amount": f"{item['total_amount']:.2f}"}
+                    for item in expenses
+                ]
+            )
+            self.movements_table.set_rows(
+                [
+                    {
+                        "id": m.id,
+                        "product_id": m.product_id,
+                        "type": m.movement_type,
+                        "quantity": f"{m.quantity:.2f}",
+                        "date": m.created_at.strftime("%Y-%m-%d %H:%M"),
+                    }
+                    for m in movements
+                ]
+            )
+            self.top_items_table.set_rows(
+                [
+                    {
+                        "item": item["name"],
+                        "qty_sold": f"{item['qty_sold']:.2f}",
+                        "sales_amount": f"{item['sales_amount']:.2f}",
+                    }
+                    for item in top_items
+                ]
+            )
 
-        top_items = self.reporting_service.get_top_selling_items(self.business.id, limit=20)
-        self.top_items_table.setRowCount(len(top_items))
-        for row, item in enumerate(top_items):
-            self.top_items_table.setItem(row, 0, QTableWidgetItem(item["name"]))
-            self.top_items_table.setItem(row, 1, QTableWidgetItem(f"{item['qty_sold']:.2f}"))
-            self.top_items_table.setItem(row, 2, QTableWidgetItem(f"{item['sales_amount']:.2f}"))
-        self.top_items_table.resizeColumnsToContents()
+            self.refresh_btn.setEnabled(True)
+
+        def err(_trace: str):
+            self.refresh_btn.setEnabled(True)
+
+        self.async_runner.run(work, JobHandle(on_success=ok, on_error=err))
 
     def export_low_stock(self) -> None:
-        rows = [
-            {
-                "id": self.low_stock_table.item(row, 0).text(),
-                "product": self.low_stock_table.item(row, 1).text(),
-                "stock": self.low_stock_table.item(row, 2).text(),
-                "reorder_level": self.low_stock_table.item(row, 3).text(),
-            }
-            for row in range(self.low_stock_table.rowCount())
-        ]
+        rows = [self.low_stock_table.model.row_at(i) for i in range(self.low_stock_table.model.rowCount())]
+        rows = [r for r in rows if r is not None]
         self._run_export(rows, "low_stock")
 
     def export_expenses(self) -> None:
-        rows = [
-            {
-                "category": self.expenses_table.item(row, 0).text(),
-                "total_amount": self.expenses_table.item(row, 1).text(),
-            }
-            for row in range(self.expenses_table.rowCount())
-        ]
+        rows = [self.expenses_table.model.row_at(i) for i in range(self.expenses_table.model.rowCount())]
+        rows = [r for r in rows if r is not None]
         self._run_export(rows, "expenses_by_category")
 
     def export_movements(self) -> None:
-        rows = [
-            {
-                "id": self.movements_table.item(row, 0).text(),
-                "product_id": self.movements_table.item(row, 1).text(),
-                "type": self.movements_table.item(row, 2).text(),
-                "quantity": self.movements_table.item(row, 3).text(),
-                "date": self.movements_table.item(row, 4).text(),
-            }
-            for row in range(self.movements_table.rowCount())
-        ]
+        rows = [self.movements_table.model.row_at(i) for i in range(self.movements_table.model.rowCount())]
+        rows = [r for r in rows if r is not None]
         self._run_export(rows, "stock_history")
 
     def export_top_items(self) -> None:
-        rows = [
-            {
-                "item": self.top_items_table.item(row, 0).text(),
-                "qty_sold": self.top_items_table.item(row, 1).text(),
-                "sales_amount": self.top_items_table.item(row, 2).text(),
-            }
-            for row in range(self.top_items_table.rowCount())
-        ]
+        rows = [self.top_items_table.model.row_at(i) for i in range(self.top_items_table.model.rowCount())]
+        rows = [r for r in rows if r is not None]
         self._run_export(rows, "top_items")
 
     def _run_export(self, rows: list, prefix: str) -> None:

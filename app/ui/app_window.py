@@ -1,5 +1,6 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QHBoxLayout,
     QVBoxLayout,
     QListWidget,
@@ -26,6 +27,7 @@ from app.database.seed import ensure_default_business
 from app.services.auth_service import AuthenticationService
 from app.services.session_manager import SessionManager
 from app.services.permissions import *
+from app.ui.design_system.widgets import TitleLabel
 
 
 class AppWindow(QMainWindow):
@@ -89,16 +91,14 @@ class AppWindow(QMainWindow):
         """Show the main application interface after successful login."""
         # Create the main interface widgets each time so they are fresh
         self.nav_list = QListWidget()
+        self.nav_list.setObjectName("NavList")
         self.nav_list.setFixedWidth(220)
         self.nav_list.currentRowChanged.connect(self.switch_page)
+        self.nav_list.setSelectionMode(QAbstractItemView.SingleSelection)
 
         self.logout_button = QPushButton("Log Out")
         self.logout_button.clicked.connect(self.logout)
         self.logout_button.setFixedHeight(40)
-
-        self.menu_button = QPushButton("☰")
-        self.menu_button.setFixedSize(40, 40)
-        self.menu_button.clicked.connect(self.toggle_drawer)
 
         self.stack = QStackedWidget()
         self.stack.addWidget(DashboardScreen())
@@ -115,15 +115,18 @@ class AppWindow(QMainWindow):
         self.setup_navigation()
 
         self.nav_container = QWidget()
+        self.nav_container.setObjectName("Sidebar")
         self.nav_container.setObjectName("navContainer")
         self.nav_container.setFixedWidth(220)
         nav_layout = QVBoxLayout(self.nav_container)
-        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setContentsMargins(10, 14, 10, 14)
         nav_layout.setSpacing(10)
+
+        brand = TitleLabel(self.get_business_name())
+        nav_layout.addWidget(brand)
         nav_layout.addWidget(self.nav_list)
         nav_layout.addWidget(self.logout_button)
         nav_layout.addStretch()
-        self.nav_container.hide()
 
         content_layout = QHBoxLayout()
         content_layout.setContentsMargins(0, 0, 0, 0)
@@ -133,20 +136,8 @@ class AppWindow(QMainWindow):
 
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        header = QWidget()
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(10, 10, 10, 10)
-        header_layout.setSpacing(10)
-        header_layout.addWidget(self.menu_button)
-        header_title = QLabel(self.get_business_name())
-        header_title.setStyleSheet("font-size: 16px; font-weight: 600;")
-        header_layout.addWidget(header_title)
-        header_layout.addStretch()
-
-        layout.addWidget(header)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(14)
         layout.addLayout(content_layout)
 
         self.setCentralWidget(container)
@@ -161,10 +152,8 @@ class AppWindow(QMainWindow):
         self.drawer_open = not self.drawer_open
         if self.drawer_open:
             self.nav_container.show()
-            self.menu_button.setText("×")
         else:
             self.nav_container.hide()
-            self.menu_button.setText("☰")
 
     def switch_page(self, row: int) -> None:
         item = self.nav_list.item(row)

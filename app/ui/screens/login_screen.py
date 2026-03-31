@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QMessageBox, QCheckBox
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtGui import QFont
 
 from app.services.auth_service import AuthenticationService
 from app.services.session_manager import SessionManager

@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QDoubleSpinBox,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -36,12 +35,13 @@ class SettingsScreen(QWidget):
         self.business = ensure_default_business()
         self.settings_service = SettingsService()
 
-        self.title = QLabel("Settings")
-        self.title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        from app.ui.design_system.widgets import PrimaryButton, TitleLabel
+
+        self.title = TitleLabel("Settings")
 
         # Business Profile Section
         profile_section = QLabel("Business Profile")
-        profile_section.setStyleSheet("font-size: 14px; font-weight: 600;")
+        profile_section.setStyleSheet("font-size: 14px; font-weight: 700;")
 
         form = QFormLayout()
 
@@ -64,7 +64,7 @@ class SettingsScreen(QWidget):
 
         # Preferences Section
         preferences_section = QLabel("Preferences")
-        preferences_section.setStyleSheet("font-size: 14px; font-weight: 600; margin-top: 20px;")
+        preferences_section.setStyleSheet("font-size: 14px; font-weight: 700; margin-top: 20px;")
         form.addRow(preferences_section)
 
         # Currency
@@ -88,8 +88,7 @@ class SettingsScreen(QWidget):
         form.addRow("Receipt Footer:", self.receipt_footer_input)
 
         # Buttons
-        save_btn = QPushButton("Save Settings")
-        save_btn.setStyleSheet("padding: 10px; font-size: 12px;")
+        save_btn = PrimaryButton("Save Settings")
         save_btn.clicked.connect(self.save_settings)
 
         button_layout = QHBoxLayout()
@@ -98,6 +97,8 @@ class SettingsScreen(QWidget):
 
         # Layout
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(self.title)
         layout.addWidget(profile_section)
         layout.addLayout(form)
@@ -115,7 +116,7 @@ class SettingsScreen(QWidget):
         """Show permission denied message."""
         layout = QVBoxLayout(self)
         denied_label = QLabel("Access Denied")
-        denied_label.setStyleSheet("font-size: 18px; font-weight: 600; color: red;")
+        denied_label.setStyleSheet("font-size: 18px; font-weight: 700;")
         denied_label.setAlignment(Qt.AlignCenter)
 
         message_label = QLabel("You don't have permission to access Settings.")

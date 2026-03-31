@@ -84,35 +84,3 @@ class ReceiptService:
             }
 
             return receipt_data
-
-            # Format datetime
-            sale_datetime = sale.created_at
-            sale_date = sale_datetime.strftime("%d %b %Y")
-            sale_time = sale_datetime.strftime("%H:%M")
-
-            # Payment method display
-            payment_display = sale.payment_method.upper()
-            if sale.payment_method == "mpesa" and sale.transaction_ref:
-                payment_display = f"M-Pesa ({sale.transaction_ref})"
-
-            receipt_data = {
-                "business_name": business.business_name,
-                "phone": business.phone or "",
-                "location": business.location or "",
-                "sale_number": f"#{sale.id:06d}",
-                "sale_id": sale.id,
-                "date": sale_date,
-                "time": sale_time,
-                "payment_method": payment_display,
-                "transaction_ref": sale.transaction_ref or "",
-                "items": items,
-                "subtotal": sale.subtotal,
-                "discount": sale.discount,
-                "tax_percent": tax_percent,
-                "tax_amount": tax_amount,
-                "total": sale.total,
-                "footer_text": business.receipt_footer or "",
-                "currency": business.currency or "KES",
-            }
-
-            return receipt_data

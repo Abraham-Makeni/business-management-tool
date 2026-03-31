@@ -61,7 +61,6 @@ class InventoryService:
                 select(Product)
                 .options(selectinload(Product.category))
             )
-            _ = stmt  # kept harmlessly for future eager loading expansion
 
             repo = StockMovementRepository(session)
             return repo.list_recent(limit=limit)

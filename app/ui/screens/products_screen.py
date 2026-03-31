@@ -1,12 +1,9 @@
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -16,6 +13,9 @@ from app.services.category_service import CategoryService
 from app.services.inventory_service import InventoryService
 from app.services.product_service import ProductService
 from app.services.signals import app_signals
+from app.ui.design_system.async_job import AsyncRunner, JobHandle
+from app.ui.design_system.table import Column, TableView
+from app.ui.design_system.widgets import PrimaryButton, TitleLabel
 from app.ui.widgets.product_form import ProductFormDialog
 from app.ui.widgets.stock_adjustment_dialog import StockAdjustmentDialog
 
@@ -29,11 +29,11 @@ class ProductsScreen(QWidget):
         self.inventory_service = InventoryService()
         self.business = ensure_default_business()
         self.products = []
+        self.async_runner = AsyncRunner()
 
-        self.title = QLabel("Products")
-        self.title.setStyleSheet("font-size: 18px; font-weight: 600;")
+        self.title = TitleLabel("Products")
 
-        self.add_btn = QPushButton("Add Product")
+        self.add_btn = PrimaryButton("Add Product")
         self.edit_btn = QPushButton("Edit")
         self.edit_btn.setEnabled(False)
         self.delete_btn = QPushButton("Remove")
@@ -50,19 +50,25 @@ class ProductsScreen(QWidget):
         actions_layout.addStretch()
         actions_layout.addWidget(self.refresh_btn)
 
-        self.table = QTableWidget(0, 7)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Name", "Category", "SKU", "Buying Price", "Selling Price", "Stock"]
+        self.table = TableView(
+            columns=[
+                Column("id", "ID", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("name", "Name"),
+                Column("category", "Category"),
+                Column("sku", "SKU"),
+                Column("buying_price", "Buying Price", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("selling_price", "Selling Price", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                Column("stock", "Stock", Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+            ]
         )
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         self.empty_state_label = QLabel("No products yet. Add one to get started.")
-        self.empty_state_label.setStyleSheet("color: #999; font-size: 13px; text-align: center;")
+        self.empty_state_label.setStyleSheet("color: rgba(255,255,255,140); font-size: 13px;")
         self.empty_state_label.setAlignment(Qt.AlignCenter)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(14)
         layout.addWidget(self.title)
         layout.addLayout(actions_layout)
         layout.addWidget(self.empty_state_label)
@@ -73,64 +79,66 @@ class ProductsScreen(QWidget):
         self.delete_btn.clicked.connect(self.delete_selected_product)
         self.adjust_btn.clicked.connect(self.adjust_selected_stock)
         self.refresh_btn.clicked.connect(self.load_products)
-        self.table.itemSelectionChanged.connect(self.on_selection_changed)
+        self.table.table.selectionModel().selectionChanged.connect(lambda *_: self.on_selection_changed())
+        self.table.refresh_btn.clicked.connect(self.load_products)
 
         self.load_products()
 
     def on_selection_changed(self) -> None:
         """Enable/disable buttons based on selection."""
-        has_selection = self.table.currentRow() >= 0
+        has_selection = self.table.table.currentIndex().isValid()
         self.edit_btn.setEnabled(has_selection)
         self.delete_btn.setEnabled(has_selection)
         self.adjust_btn.setEnabled(has_selection)
 
     def load_products(self) -> None:
-        self.products = self.product_service.list_products()
-        self.table.setRowCount(len(self.products))
+        self.refresh_btn.setEnabled(False)
+        self.table.refresh_btn.setEnabled(False)
 
-        # Show/hide empty state
-        if len(self.products) == 0:
-            self.empty_state_label.setVisible(True)
-            self.table.setVisible(False)
-            self.edit_btn.setEnabled(False)
-            self.delete_btn.setEnabled(False)
-            self.adjust_btn.setEnabled(False)
-        else:
-            self.empty_state_label.setVisible(False)
-            self.table.setVisible(True)
+        def work():
+            return self.product_service.list_products()
 
-        for row, product in enumerate(self.products):
-            category_name = ""
-            if getattr(product, "category", None) is not None:
-                category_name = product.category.name
+        def ok(products):
+            self.products = products
+            rows = []
+            for p in self.products:
+                category_name = p.category.name if getattr(p, "category", None) is not None else ""
+                rows.append(
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "category": category_name,
+                        "sku": p.sku or "",
+                        "buying_price": f"{p.buying_price:.2f}",
+                        "selling_price": f"{p.selling_price:.2f}",
+                        "stock": f"{p.quantity_in_stock:.2f}",
+                    }
+                )
 
-            items = [
-                QTableWidgetItem(str(product.id)),
-                QTableWidgetItem(product.name),
-                QTableWidgetItem(category_name),
-                QTableWidgetItem(product.sku or ""),
-                QTableWidgetItem(f"{product.buying_price:.2f}"),
-                QTableWidgetItem(f"{product.selling_price:.2f}"),
-                QTableWidgetItem(f"{product.quantity_in_stock:.2f}"),
-            ]
+            self.table.set_rows(rows)
 
-            for col, item in enumerate(items):
-                if product.quantity_in_stock <= product.reorder_level:
-                    item.setBackground(QColor(255, 230, 230))
-                self.table.setItem(row, col, item)
+            is_empty = len(self.products) == 0
+            self.empty_state_label.setVisible(is_empty)
+            self.table.setVisible(not is_empty)
+            if is_empty:
+                self.edit_btn.setEnabled(False)
+                self.delete_btn.setEnabled(False)
+                self.adjust_btn.setEnabled(False)
 
-        self.table.resizeColumnsToContents()
+            self.refresh_btn.setEnabled(True)
+            self.table.refresh_btn.setEnabled(True)
+
+        def err(_trace: str):
+            self.refresh_btn.setEnabled(True)
+            self.table.refresh_btn.setEnabled(True)
+
+        self.async_runner.run(work, JobHandle(on_success=ok, on_error=err))
 
     def get_selected_product(self):
-        row = self.table.currentRow()
-        if row < 0:
+        selected = self.table.selected_row()
+        if not selected:
             return None
-
-        item = self.table.item(row, 0)
-        if item is None:
-            return None
-
-        product_id = int(item.text())
+        product_id = int(selected["id"])
         for product in self.products:
             if product.id == product_id:
                 return product
