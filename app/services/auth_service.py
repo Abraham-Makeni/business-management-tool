@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import func, select
 
 from app.database.models.user import User
@@ -10,11 +10,6 @@ from app.database.session import SessionLocal
 class AuthenticationService:
     """Service for user authentication and password management."""
 
-    _pwd_context = CryptContext(
-        schemes=["bcrypt"],
-        bcrypt__rounds=12,
-        deprecated="auto",
-    )
     _legacy_salt = "business_tool_salt_2026"
 
     @staticmethod
@@ -44,12 +39,19 @@ class AuthenticationService:
     @classmethod
     def hash_password(cls, password: str) -> str:
         """Hash a password using bcrypt."""
-        return cls._pwd_context.hash(password)
+        # Truncate password to 72 bytes as required by bcrypt
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        salt = bcrypt.gensalt(rounds=12)
+        return bcrypt.hashpw(password_bytes, salt).decode('utf-8')
 
     @classmethod
     def hash_pin(cls, pin: str) -> str:
         """Hash a PIN using bcrypt."""
-        return cls._pwd_context.hash(pin)
+        pin_bytes = pin.encode('utf-8')
+        salt = bcrypt.gensalt(rounds=12)
+        return bcrypt.hashpw(pin_bytes, salt).decode('utf-8')
 
     def authenticate_user(self, username: str, password_or_pin: str) -> User | None:
         """
@@ -81,10 +83,15 @@ class AuthenticationService:
                         user.password_hash = self.hash_password(password_or_pin)
                         return _finalize_login()
                 else:
-                    if self._pwd_context.verify(password_or_pin, user.password_hash):
-                        if self._pwd_context.needs_update(user.password_hash):
-                            user.password_hash = self.hash_password(password_or_pin)
-                        return _finalize_login()
+                    # Verify bcrypt password hash
+                    try:
+                        password_bytes = password_or_pin.encode('utf-8')
+                        if len(password_bytes) > 72:
+                            password_bytes = password_bytes[:72]
+                        if bcrypt.checkpw(password_bytes, user.password_hash.encode('utf-8')):
+                            return _finalize_login()
+                    except (ValueError, TypeError):
+                        pass
 
             # Check PIN if password didn't match
             if user.pin_hash:
@@ -93,10 +100,15 @@ class AuthenticationService:
                         user.pin_hash = self.hash_pin(password_or_pin)
                         return _finalize_login()
                 else:
-                    if self._pwd_context.verify(password_or_pin, user.pin_hash):
-                        if self._pwd_context.needs_update(user.pin_hash):
-                            user.pin_hash = self.hash_pin(password_or_pin)
-                        return _finalize_login()
+                    # Verify bcrypt PIN hash
+                    try:
+                        pin_bytes = password_or_pin.encode('utf-8')
+                        if len(pin_bytes) > 72:
+                            pin_bytes = pin_bytes[:72]
+                        if bcrypt.checkpw(pin_bytes, user.pin_hash.encode('utf-8')):
+                            return _finalize_login()
+                    except (ValueError, TypeError):
+                        pass
 
             return None
 
