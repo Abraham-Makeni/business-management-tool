@@ -5,6 +5,8 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect
 
+from app.database.base import Base
+from app.database import models  # noqa: F401
 from app.database.session import engine
 
 logger = logging.getLogger(__name__)
@@ -26,8 +28,10 @@ def init_db() -> None:
         try:
             command.upgrade(cfg, "head")
         except Exception:
-            # Prefer stamping over crashing on first run.
-            logger.exception("Alembic upgrade failed on unmanaged DB; stamping head.")
+            logger.exception(
+                "Alembic upgrade failed on unmanaged DB; creating missing tables from SQLAlchemy models then stamping head."
+            )
+            Base.metadata.create_all(bind=engine)
             command.stamp(cfg, "head")
         return
 

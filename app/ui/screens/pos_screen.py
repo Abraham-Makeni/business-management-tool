@@ -48,6 +48,7 @@ class POSScreen(QWidget):
         self.search_input.setStyleSheet("font-size: 13px; padding: 5px;")
 
         self.product_list = QListWidget()
+        self.product_list.setObjectName("ProductList")
         self.product_list.setSelectionMode(QAbstractItemView.SingleSelection)
 
         self.add_btn = QPushButton("Add to Cart")

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QWidget,
     QLabel,
+    QSizePolicy,
 )
 
 from app.ui.screens.categories_screen import CategoriesScreen
@@ -93,6 +94,7 @@ class AppWindow(QMainWindow):
         self.nav_list = QListWidget()
         self.nav_list.setObjectName("NavList")
         self.nav_list.setFixedWidth(220)
+        self.nav_list.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         self.nav_list.currentRowChanged.connect(self.switch_page)
         self.nav_list.setSelectionMode(QAbstractItemView.SingleSelection)
 
@@ -133,9 +135,8 @@ class AppWindow(QMainWindow):
 
         brand = TitleLabel(self.get_business_name())
         nav_content_layout.addWidget(brand)
-        nav_content_layout.addWidget(self.nav_list)
-        nav_content_layout.addWidget(self.logout_button)
-        nav_content_layout.addStretch()
+        nav_content_layout.addWidget(self.nav_list, 1)
+        nav_content_layout.addWidget(self.logout_button, alignment=Qt.AlignLeft | Qt.AlignBottom)
 
         nav_layout = QVBoxLayout(self.nav_container)
         nav_layout.setContentsMargins(0, 0, 0, 0)

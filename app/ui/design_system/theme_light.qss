@@ -139,7 +139,44 @@ QTableView::item {
 }
 
 QTableView::item:hover {
-  background: rgba(59, 130, 246, 0.08);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+QTableView::item:selected, QTableView::item:selected:active {
+  background: rgba(37, 99, 235, 0.25);
+  color: #111827;
+}
+
+QListWidget#NavList::item:selected {
+  background: rgba(37, 99, 235, 0.24);
+  border: 1px solid rgba(37, 99, 235, 0.55);
+  color: #1f2937;
+  font-weight: 700;
+}
+
+QListWidget#ProductList {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+}
+
+QListWidget#ProductList::item {
+  padding: 12px 14px;
+  margin: 4px 8px;
+  border-radius: 12px;
+  background: transparent;
+  color: #1f2937;
+}
+
+QListWidget#ProductList::item:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+QListWidget#ProductList::item:selected,
+QListWidget#ProductList::item:selected:active {
+  background: rgba(37, 99, 235, 0.3);
+  border: 1px solid rgba(37, 99, 235, 0.55);
+  color: #0f172a;
 }
 
 QTabWidget::pane {

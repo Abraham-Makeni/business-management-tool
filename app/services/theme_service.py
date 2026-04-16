@@ -5,7 +5,7 @@ from app.core.config import DATA_DIR
 
 
 class ThemeService:
-    DEFAULT_THEME = "high_contrast"
+    DEFAULT_THEME = "light"
     THEMES = {
         "high_contrast": "theme.qss",
         "dark": "theme_dark.qss",
